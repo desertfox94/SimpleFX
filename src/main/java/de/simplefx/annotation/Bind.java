@@ -11,6 +11,6 @@ public @interface Bind {
 
 	public String field() default "";
 
-	public boolean biDirectional() default false;
+	public boolean biDirectional() default true;
 
 }
