@@ -29,6 +29,8 @@ import javax.annotation.PostConstruct
 import java.lang.reflect.Method
 import de.simplefx.annotation.Model
 import java.lang.reflect.Field
+import de.simplefx.annotation.Items
+import de.simplefx.exceptions.ControllerMemberNotFound
 
 val VIEW = "view"
 
@@ -71,6 +73,7 @@ class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 	private fun initializeModel(modelField: Field) {
 		var model = reflector.initField(controller, modelField)
 		bindAll(model)
+		fillWithItems(model)
 		callPostConstruct(model)
 	}
 
@@ -109,7 +112,6 @@ class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 				)
 			}
 		}
-
 	}
 
 	fun bind(modelField: Property<Any>, controllerField: Any, biDirectional: Boolean) {
@@ -120,6 +122,24 @@ class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 			controllerProperty.bind(modelField)
 		}
 	}
+
+	fun fillWithItems(model: Any) {
+		reflector.fieldsByAnnotation(model, Items::class.java).forEach { fillWithItems(model, it) }
+	}
+
+	fun fillWithItems(model: Any, itemsField: Field) {
+		var itemsAnnotation = itemsField.getAnnotation(Items::class.java)
+		var name = if (itemsAnnotation.field.isNotEmpty()) itemsAnnotation.field else itemsField.getName()
+		var controlWithItemsField = reflector.fieldByName(controller, name)
+		if (controlWithItemsField == null) {
+			throw ControllerMemberNotFound(name, itemsField.getName())
+		}
+		var itemsProperty = Properties.itemsOf(controlWithItemsField.get(controller))
+		controlWithItemsField.setAccessible(true)
+		itemsField.setAccessible(true)
+		itemsProperty.setValue(itemsField.get(model))
+	}
+
 
 	private fun localizeView(view: String, controllerClass: Class<*>): URL {
 		return controllerClass.getResource(view)
