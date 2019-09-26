@@ -27,113 +27,102 @@ import javafx.beans.binding.Binding
 import com.sun.javafx.binding.BidirectionalBinding
 import javax.annotation.PostConstruct
 import java.lang.reflect.Method
+import de.simplefx.annotation.Model
+import java.lang.reflect.Field
 
 val VIEW = "view"
 
-fun <T : Controller<in Pane, Any>> load(controllerClass: Class<T>): T {
-	var viewController = controllerClass.annotations.first { it is ViewController } as ViewController
-	var location = localizeView(viewController.view, controllerClass)
-	var loader = FXMLLoader(location)
-	var view: Pane = loader.load()
-	var controller: T = loader.getController();
-	controller.view = view
+class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 
-	if (viewController.model.isNotEmpty()) {
-		var model = loadModel(viewController.model);
-		controller.model = model
-		bindAll(model, controller)
-//		callPostConstruct(model)
+	val reflector = Reflector()
+
+	lateinit var controller: T
+
+	companion object {
+		fun <T : Controller<in Pane>> load(controllerClass: Class<T>): T = SimpleFXLoader(controllerClass).load()
 	}
 
-	controllerClass.annotations.filter { it is StyleSheets }
-		.forEach({ controller.styleSheets.addAll((it as StyleSheets).path) })
-	return controller
-}
-
-private fun callPostConstruct(model: Any) {
-	callByAnnotation(model, PostConstruct::class.java)
-}
-
-private fun callByAnnotation(model: Any, annotation: Class<out Annotation>) {
-	var method = model.javaClass.getMethods().first { method -> method.isAnnotationPresent(annotation) }
-	if (method != null) {
-		method.invoke(model)
+	fun load(): T {
+		instantiateViaFXML()
+		initializeModels()
+		setStyleSheeets()
+		return controller
 	}
-}
 
+	private fun instantiateViaFXML() {
+		var controllerAnnotaion = controllerClass.annotations.first { it is ViewController } as ViewController
+		var location = localizeView(controllerAnnotaion.view, controllerClass)
+		var loader = FXMLLoader(location)
+		var view: Pane = loader.load()
+		controller = loader.getController();
+		controller.view = view
+	}
 
-private fun <T : Annotation> firstAnnotation(clazz: Class<*>, type: Class<T>): T {
-	return getAnnotations(clazz, type).first() as T
-}
+	private fun setStyleSheeets() {
+		var stylesheets = reflector.getAnnotations(controllerClass, StyleSheets::class.java);
+		stylesheets.forEach({ controller.styleSheets.addAll(it.path) })
+	}
 
-private fun <T : Annotation> getAnnotations(clazz: Class<*>, type: Class<T>): List<T> {
-	return clazz.annotations.filter { it.equals(type) } as List<T>
-}
+	private fun initializeModels() {
+		reflector.fieldsByAnnotation(controller, Model::class.java)
+			.forEach({ initializeModel(it) })
+	}
 
-fun loadModel(model: String): Any {
-	return Class.forName(model).newInstance();
-}
+	private fun initializeModel(modelField: Field) {
+		var model = reflector.initField(controller, modelField)
+		bindAll(model)
+		callPostConstruct(model)
+	}
 
-fun addValidation(modelField: Property<String>, p: Predicate<String>) {
-	modelField.addListener({ prop, o, n ->
-		if (!n.equals(o) && !p.test(n)) {
+	private fun callPostConstruct(model: Any) {
+		reflector.callByAnnotation(model, PostConstruct::class.java)
+	}
 
-			modelField.setValue(o)
-		}
-	})
-}
+	fun loadModel(model: String): Any {
+		return Class.forName(model).newInstance();
+	}
 
-fun bindAll(model: Any, controller: Controller<Pane, Any>) {
-	var fields = model.javaClass.getDeclaredFields()
-	fields.forEach { field ->
-		field.setAccessible(true)
-		if (field.isAnnotationPresent(Bind::class.java)) {
-			var binding = field.getAnnotation(Bind::class.java)
-			var controllerFieldName: String;
-			if (binding.field.isNotEmpty()) {
-				controllerFieldName = binding.field
-			} else {
-				controllerFieldName = field.getName()
+	fun addValidation(modelField: Property<String>, p: Predicate<String>) {
+		modelField.addListener({ prop, o, n ->
+			if (!n.equals(o) && !p.test(n)) {
+				modelField.setValue(o)
 			}
-			bind(
-				field.get(model) as Property<Any>,
-				controller::class.java.getField(controllerFieldName).get(controller),
-				binding.biDirectional
-			)
+		})
+	}
+
+	fun bindAll(model: Any) {
+		var fields = model.javaClass.getDeclaredFields()
+		fields.forEach { field ->
+			field.setAccessible(true)
+			if (field.isAnnotationPresent(Bind::class.java)) {
+				var binding = field.getAnnotation(Bind::class.java)
+				var controllerFieldName: String;
+				if (binding.field.isNotEmpty()) {
+					controllerFieldName = binding.field
+				} else {
+					controllerFieldName = field.getName()
+				}
+				bind(
+					field.get(model) as Property<Any>,
+					controller::class.java.getField(controllerFieldName).get(controller),
+					binding.biDirectional
+				)
+			}
+		}
+
+	}
+
+	fun bind(modelField: Property<Any>, controllerField: Any, biDirectional: Boolean) {
+		var controllerProperty = Properties.of(controllerField);
+		if (biDirectional) {
+			BidirectionalBinding.bind(controllerProperty, modelField);
+		} else {
+			controllerProperty.bind(modelField)
 		}
 	}
 
-}
-
-fun bind(modelField: Property<Any>, controllerField: Any, biDirectional: Boolean) {
-	var controllerProperty = propertyOf(controllerField);
-	if (biDirectional) {
-		BidirectionalBinding.bind(controllerProperty, modelField);
-	} else {
-		controllerProperty.bind(modelField)
+	private fun localizeView(view: String, controllerClass: Class<*>): URL {
+		return controllerClass.getResource(view)
 	}
 }
 
-fun propertyOf(control: Any): Property<Any> {
-	if (control is CheckBox) {
-		return control.selectedProperty() as Property<Any>
-	} else if (control is Label) {
-		return control.textProperty() as Property<Any>
-	} else if (control is ComboBoxBase<*>) {
-		return control.valueProperty() as Property<Any>
-	} else if (control is ImageView) {
-		return control.imageProperty() as Property<Any>
-	} else if (control is ListView<*>) {
-		return control.itemsProperty() as Property<Any>
-	} else if (control is TextInputControl) {
-		return control.textProperty() as Property<Any>
-	} else if (control is ToggleButton) {
-		return control.selectedProperty() as Property<Any>
-	} else {
-		throw ControlBindingNotSupported(control::class.java.getSimpleName())
-	}
-}
-
-private fun localizeView(view: String, controllerClass: Class<*>): URL {
-	return controllerClass.getResource(view)
-}

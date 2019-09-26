@@ -3,11 +3,9 @@ package de.simplefx
 import javafx.fxml.FXML
 import javafx.scene.layout.Pane
 
-open class Controller<V : Pane, M : Any> {
+open class Controller<V : Pane> {
 
 	lateinit var view: V
-
-	lateinit var model: M
 
 	val styleSheets: MutableList<String> = ArrayList()
 
