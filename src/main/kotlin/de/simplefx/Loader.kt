@@ -31,6 +31,11 @@ import de.simplefx.annotation.Model
 import java.lang.reflect.Field
 import de.simplefx.annotation.Items
 import de.simplefx.exceptions.ControllerMemberNotFound
+import javafx.scene.control.TableView
+import java.lang.reflect.ParameterizedType
+import de.simplefx.annotation.ColumnValue
+import javafx.scene.control.TableColumn
+import javafx.beans.value.ObservableValue
 
 val VIEW = "view"
 
@@ -134,12 +139,34 @@ class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 		if (controlWithItemsField == null) {
 			throw ControllerMemberNotFound(name, itemsField.getName())
 		}
-		var itemsProperty = Properties.itemsOf(controlWithItemsField.get(controller))
+		var control = controlWithItemsField.get(controller)
+		var itemsProperty = Properties.itemsOf(control)
 		controlWithItemsField.setAccessible(true)
 		itemsField.setAccessible(true)
 		itemsProperty.setValue(itemsField.get(model))
+		if (control is TableView<out Any>) {
+			mapTableColumns(control, itemsField)
+		}
 	}
 
+	private fun mapTableColumns(tableView : TableView<out Any>, itemsField: Field) {
+		var itemsClass = reflector.genericTypeOf(itemsField)
+		var columnValueFields = reflector.getAnnotatedFields(itemsClass, ColumnValue::class.java)
+		columnValueFields.forEach({ f ->
+			var id = f.annotation.name
+			if (id.isEmpty()) {
+				id = f.field.getName()
+			}
+			var column : TableColumn<Any, Any> = tableView.getColumns().first { id.equals(it.getId()) } as TableColumn<Any, Any>
+			if (column != null) {
+				f.field.setAccessible(true)
+				column.setCellValueFactory {
+					f.field.get(it.getValue()) as ObservableValue<Any>
+				}
+			}
+		})
+	}
+	
 
 	private fun localizeView(view: String, controllerClass: Class<*>): URL {
 		return controllerClass.getResource(view)
