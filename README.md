@@ -4,6 +4,15 @@ A basic framework to simplify the use of JavaFX and prevents boilerplate code fo
 ## Some examples
 ### Binding a model property to a JavaFX control
 
+#### FXML
+```XML
+<GridPane fx:controller="de.simplefx.AppController">
+	<TextField fx:id="description" />
+	<DatePicker fx:id="datePicker" />
+</GridPane>
+```
+
+#### Controller
 ```kotlin
 class AppController : Controller<Pane>() {
 	
@@ -17,7 +26,10 @@ class AppController : Controller<Pane>() {
 	lateinit var datePicker: DatePicker
 	
 }
+```
 
+#### Model
+```kotlin
 class AppModel {
 
 	@Bind
@@ -88,3 +100,36 @@ The AppController holds the references to the the tableView and model. Note the 
 The AppModel uses the @Items Annotation to put items of 'tableContent' into the tableView.
 In the TableObject you can see the @ColumnValue Annotation which is used to bind the Property to the TableCell.
 As mentioned the 'random' column is not referenced, but the binding will work anyway.
+
+
+### You even not have to reference the controls in the controller.
+
+#### FXML
+```XML
+<GridPane fx:controller="de.simplefx.AppController">
+	<TextField fx:id="description" />
+	<DatePicker fx:id="datePicker" />
+</GridPane>
+```
+
+#### Controller
+```kotlin
+class AppController : Controller<Pane>() {
+	
+	@Model
+	lateinit var model : AppModel
+
+}
+```
+#### Model
+```kotlin
+class AppModel {
+
+	@Bind
+	val description: StringProperty = SimpleStringProperty()
+	
+	@Bind("datePicker")
+	val date: ObjectProperty<LocalDate> = SimpleObjectProperty<LocalDate>()
+	
+}
+```
