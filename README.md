@@ -38,7 +38,7 @@ Its also possible to reference the control with a paramater in the @Bind Annotat
 
 ### Fill a table view
 
-The FXML
+#### FXML
 ```XML
 <TableView fx:id="tableView">
 	<columns>
@@ -48,7 +48,7 @@ The FXML
 </TableView>
 ```
 
-Controller, Model and TableObject
+#### Controller
 ```kotlin
 class AppController : Controller<Pane>() {
 	
@@ -63,6 +63,7 @@ class AppController : Controller<Pane>() {
 	
 }
 ```
+#### Model
 ```kotlin
 class AppModel {
 
@@ -71,6 +72,7 @@ class AppModel {
 	
 }
 ```
+#### TableObject
 ```kotlin
 class TableObject {
 	
