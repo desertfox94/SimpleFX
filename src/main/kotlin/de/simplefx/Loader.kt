@@ -33,7 +33,7 @@ import de.simplefx.annotation.Items
 import de.simplefx.exceptions.ControllerMemberNotFound
 import javafx.scene.control.TableView
 import java.lang.reflect.ParameterizedType
-import de.simplefx.annotation.ColumnValue
+import de.simplefx.annotation.CellValue
 import javafx.scene.control.TableColumn
 import javafx.beans.value.ObservableValue
 
@@ -151,7 +151,7 @@ class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 
 	private fun mapTableColumns(tableView : TableView<out Any>, itemsField: Field) {
 		var itemsClass = reflector.genericTypeOf(itemsField)
-		var columnValueFields = reflector.getAnnotatedFields(itemsClass, ColumnValue::class.java)
+		var columnValueFields = reflector.getAnnotatedFields(itemsClass, CellValue::class.java)
 		columnValueFields.forEach({ f ->
 			var id = f.annotation.name
 			if (id.isEmpty()) {
