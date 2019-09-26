@@ -112,7 +112,7 @@ class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 				}
 				bind(
 					field.get(model) as Property<Any>,
-					controller::class.java.getField(controllerFieldName).get(controller),
+					(controller.view as Pane).lookup("#$controllerFieldName"),
 					binding.biDirectional
 				)
 			}
@@ -135,13 +135,11 @@ class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 	fun fillWithItems(model: Any, itemsField: Field) {
 		var itemsAnnotation = itemsField.getAnnotation(Items::class.java)
 		var name = if (itemsAnnotation.field.isNotEmpty()) itemsAnnotation.field else itemsField.getName()
-		var controlWithItemsField = reflector.fieldByName(controller, name)
-		if (controlWithItemsField == null) {
+		var control = (controller.view as Pane).lookup("#$name")
+		if (control == null) {
 			throw ControllerMemberNotFound(name, itemsField.getName())
 		}
-		var control = controlWithItemsField.get(controller)
 		var itemsProperty = Properties.itemsOf(control)
-		controlWithItemsField.setAccessible(true)
 		itemsField.setAccessible(true)
 		itemsProperty.setValue(itemsField.get(model))
 		if (control is TableView<out Any>) {
