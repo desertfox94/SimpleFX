@@ -1,11 +1,12 @@
 package de.simplefx
 
 import javafx.fxml.FXML
+import javafx.scene.Scene
 import javafx.scene.layout.Pane
 
 open class Controller<V : Pane> {
 
-	lateinit var view: V
+	lateinit var view: V 
 
 	val styleSheets: MutableList<String> = ArrayList()
 
@@ -15,4 +16,6 @@ open class Controller<V : Pane> {
 
 	protected fun onShow() {}
 
+	protected fun getScene() : Scene = view.getScene()
+	
 }

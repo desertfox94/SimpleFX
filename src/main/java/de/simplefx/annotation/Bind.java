@@ -13,4 +13,6 @@ public @interface Bind {
 
 	public boolean biDirectional() default true;
 
+	public Class<?>[] applicableFor() default {};
+
 }

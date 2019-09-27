@@ -2,7 +2,6 @@ package de.simplefx
 
 import de.simplefx.annotation.Bind
 import de.simplefx.annotation.StyleSheets
-import de.simplefx.annotation.ViewController
 import javafx.beans.property.Property
 import javafx.fxml.FXMLLoader
 import javafx.scene.control.TextField
@@ -36,39 +35,41 @@ import java.lang.reflect.ParameterizedType
 import de.simplefx.annotation.CellValue
 import javafx.scene.control.TableColumn
 import javafx.beans.value.ObservableValue
+import javafx.scene.Parent
+import javafx.scene.Scene
+import javafx.stage.Stage
 
-val VIEW = "view"
-
-class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
+class SimpleFXLoader(val location: URL) {
 
 	val reflector = Reflector()
 
-	lateinit var controller: T
+	lateinit var controller: Any
+	
+	lateinit var controllerClass: Any
+	
+	lateinit var view: Pane
 
-	companion object {
-		fun <T : Controller<in Pane>> load(controllerClass: Class<T>): T = SimpleFXLoader(controllerClass).load()
-	}
-
-	fun load(): T {
+	fun load(): Pane {
 		instantiateViaFXML()
 		initializeModels()
-		setStyleSheeets()
-		return controller
+//		setStyleSheeets()
+		return view
 	}
 
 	private fun instantiateViaFXML() {
-		var controllerAnnotaion = controllerClass.annotations.first { it is ViewController } as ViewController
-		var location = localizeView(controllerAnnotaion.view, controllerClass)
 		var loader = FXMLLoader(location)
-		var view: Pane = loader.load()
+		view = loader.load()
 		controller = loader.getController();
-		controller.view = view
+		if (controller is Controller<out Pane>) {
+			(controller as Controller<Pane>).view = view
+		}
+		controllerClass = controller.javaClass
 	}
 
-	private fun setStyleSheeets() {
-		var stylesheets = reflector.getAnnotations(controllerClass, StyleSheets::class.java);
-		stylesheets.forEach({ controller.styleSheets.addAll(it.path) })
-	}
+//	private fun setStyleSheeets() {
+//		var stylesheets = reflector.getAnnotations(controllerClass, StyleSheets::class.java);
+//		stylesheets.forEach({ controller.styleSheets.addAll(it.path) })
+//	}
 
 	private fun initializeModels() {
 		reflector.fieldsByAnnotation(controller, Model::class.java)
@@ -112,7 +113,7 @@ class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 				}
 				bind(
 					field.get(model) as Property<Any>,
-					(controller.view as Pane).lookup("#$controllerFieldName"),
+					view.lookup("#$controllerFieldName"),
 					binding.biDirectional
 				)
 			}
@@ -135,7 +136,7 @@ class SimpleFXLoader<T : Controller<in Pane>>(val controllerClass: Class<T>) {
 	fun fillWithItems(model: Any, itemsField: Field) {
 		var itemsAnnotation = itemsField.getAnnotation(Items::class.java)
 		var name = if (itemsAnnotation.field.isNotEmpty()) itemsAnnotation.field else itemsField.getName()
-		var control = (controller.view as Pane).lookup("#$name")
+		var control = view.lookup("#$name")
 		if (control == null) {
 			throw ControllerMemberNotFound(name, itemsField.getName())
 		}
